@@ -23,18 +23,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jeet.mobistream.ui.theme.AmoledBlack
 
 /**
- * Apple Liquid Glass Surface with top specular rim reflection and AMOLED depth.
+ * Minimalist AMOLED Surface with ultra-clean subtle specular rim.
  */
 @Composable
 fun LiquidGlassSurface(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(22.dp),
-    borderWidth: Dp = 1.dp,
-    tint: Color = Color(0x261E1E1E),
-    specularAlpha: Float = 0.28f,
+    shape: Shape = RoundedCornerShape(16.dp),
+    borderWidth: Dp = 0.5.dp,
+    tint: Color = Color(0xFF0D0D0D),
+    specularAlpha: Float = 0.08f,
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -43,8 +44,8 @@ fun LiquidGlassSurface(
     val haptics = rememberHaptics()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed && onClick != null) 0.965f else 1f,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = 500f),
+        targetValue = if (isPressed && onClick != null) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = 0.8f, stiffness = 600f),
         label = "glassScale"
     )
 
@@ -54,27 +55,28 @@ fun LiquidGlassSurface(
         }
     }
 
-    val glassBorder = Brush.verticalGradient(
-        colors = listOf(
-            Color.White.copy(alpha = specularAlpha),
-            Color.White.copy(alpha = specularAlpha * 0.35f),
-            Color.White.copy(alpha = 0.04f)
+    val glassBorder = if (borderWidth > 0.dp && specularAlpha > 0f) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = specularAlpha),
+                Color.White.copy(alpha = specularAlpha * 0.4f),
+                Color.Transparent
+            )
         )
-    )
+    } else null
 
-    val glassFill = Brush.verticalGradient(
-        colors = listOf(
-            tint.copy(alpha = 0.35f),
-            AmoledBlack.copy(alpha = 0.55f)
-        )
-    )
+    val surfaceFill = tint
 
     Box(
         modifier = modifier
             .scale(scale)
             .clip(shape)
-            .background(glassFill, shape)
-            .border(borderWidth, glassBorder, shape)
+            .background(surfaceFill, shape)
+            .then(
+                if (glassBorder != null && borderWidth > 0.dp) {
+                    Modifier.border(borderWidth, glassBorder, shape)
+                } else Modifier
+            )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -92,7 +94,7 @@ fun LiquidGlassSurface(
 }
 
 /**
- * Liquid Glass Capsule / Pill Badge (for quality tags, category chips, live badges)
+ * Minimalist Capsule / Pill Badge
  */
 @Composable
 fun LiquidGlassBadge(
@@ -102,28 +104,21 @@ fun LiquidGlassBadge(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        accentColor.copy(alpha = 0.18f),
-                        Color(0x1AFFFFFF)
-                    )
-                )
-            )
+            .clip(RoundedCornerShape(6.dp))
+            .background(accentColor.copy(alpha = 0.12f))
             .border(
-                0.75.dp,
-                accentColor.copy(alpha = 0.45f),
-                RoundedCornerShape(8.dp)
+                0.5.dp,
+                accentColor.copy(alpha = 0.25f),
+                RoundedCornerShape(6.dp)
             )
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .padding(horizontal = 7.dp, vertical = 2.dp)
     ) {
         androidx.compose.material3.Text(
             text = text,
             color = accentColor,
             style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+            fontSize = 10.sp
         )
     }
 }
-

@@ -19,15 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,13 +45,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jeet.mobistream.core.extension.ExtensionItem
 import com.jeet.mobistream.core.extension.ExtensionManager
-import com.jeet.mobistream.ui.components.LiquidGlassBadge
 import com.jeet.mobistream.ui.components.LiquidGlassSurface
 import com.jeet.mobistream.ui.components.rememberHaptics
 import com.jeet.mobistream.ui.theme.AmoledBlack
 import com.jeet.mobistream.ui.theme.CrimsonRed
-import com.jeet.mobistream.ui.theme.GlassSurfaceDark
-import com.jeet.mobistream.ui.theme.TextDeepDim
 import com.jeet.mobistream.ui.theme.TextPureWhite
 import com.jeet.mobistream.ui.theme.TextSoftMuted
 
@@ -110,27 +101,17 @@ fun HomeScreen(
                         color = CrimsonRed,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    if (installedProviders.isNotEmpty()) {
-                        LiquidGlassBadge(
-                            text = "${installedProviders.size} ACTIVE",
-                            accentColor = Color(0xFF10B981)
-                        )
-                    } else {
-                        LiquidGlassBadge(
-                            text = "NO EXTENSIONS",
-                            accentColor = CrimsonRed
-                        )
-                    }
                 }
 
                 LiquidGlassSurface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(36.dp),
                     shape = CircleShape,
+                    borderWidth = 0.dp,
+                    tint = Color(0xFF141414),
                     onClick = {
                         haptics.lightClick()
                         loadActiveProviders()
-                        Toast.makeText(context, "Provider status refreshed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Refreshed", Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Icon(
@@ -138,7 +119,7 @@ fun HomeScreen(
                         contentDescription = "Refresh",
                         tint = TextPureWhite,
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(17.dp)
                             .align(Alignment.Center)
                     )
                 }
@@ -146,73 +127,71 @@ fun HomeScreen(
         }
 
         if (installedProviders.isEmpty()) {
-            // Elegant Zero-Hardcoded State: Modular Setup Banner
+            // Minimal Zero-Hardcoded State
             item {
                 Spacer(modifier = Modifier.height(10.dp))
                 LiquidGlassSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    specularAlpha = 0.35f
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(26.dp),
+                            .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(52.dp)
                                 .clip(CircleShape)
-                                .background(GlassSurfaceDark),
+                                .background(Color(0xFF141414)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Extension,
                                 contentDescription = null,
                                 tint = CrimsonRed,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Text(
                             text = "No Extensions Installed",
                             color = TextPureWhite,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                            fontSize = 16.sp
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "MobiStream is 100% modular and contains zero pre-loaded content.\nAdd an extension repository to enable streaming for movies, shows, and live sports.",
+                            text = "MobiStream is 100% modular with zero bundled media.\nAdd an extension in Settings to stream movies, series, and sports.",
                             color = TextSoftMuted,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
+                            lineHeight = 17.sp
                         )
 
-                        Spacer(modifier = Modifier.height(22.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        // Step-by-step guidance card
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0x22111111))
-                                .padding(16.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF141414))
+                                .padding(14.dp)
                         ) {
-                            StepInstructionRow(step = "1", text = "Open Settings tab from the bottom bar")
-                            Spacer(modifier = Modifier.height(10.dp))
+                            StepInstructionRow(step = "1", text = "Go to Settings tab")
+                            Spacer(modifier = Modifier.height(8.dp))
                             StepInstructionRow(step = "2", text = "Select 'Extension' category")
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             StepInstructionRow(step = "3", text = "Tap '+' and enter shortcode 'msr'")
-                            Spacer(modifier = Modifier.height(10.dp))
-                            StepInstructionRow(step = "4", text = "Install your preferred Hindi/Sports providers")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            StepInstructionRow(step = "4", text = "Install your preferred providers")
                         }
                     }
                 }
@@ -233,30 +212,29 @@ fun HomeScreen(
                         color = TextSoftMuted,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
+                        letterSpacing = 1.sp
                     )
                     Text(
-                        text = "${installedProviders.size} Enabled",
+                        text = "${installedProviders.size} Active",
                         color = Color(0xFF10B981),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
             items(installedProviders, key = { it.internalName }) { ext ->
                 LiquidGlassSurface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    specularAlpha = 0.25f
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -270,46 +248,39 @@ fun HomeScreen(
                                     contentDescription = ext.name,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .size(42.dp)
+                                        .clip(RoundedCornerShape(10.dp))
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(GlassSurfaceDark),
+                                        .size(42.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF161616)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = ext.name.take(2).uppercase(),
                                         color = CrimsonRed,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
+                                        fontSize = 14.sp
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(14.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
 
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = ext.name,
-                                        color = TextPureWhite,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 15.sp
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    LiquidGlassBadge(
-                                        text = ext.language.uppercase(),
-                                        accentColor = CrimsonRed
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = ext.name,
+                                    color = TextPureWhite,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = if (ext.hasSubProviders) {
-                                        "${ext.enabledSubProviders.size} Active Channels/Feeds"
+                                        "${ext.enabledSubProviders.size} of ${ext.subProviders.size} feeds active"
                                     } else {
                                         "v${ext.version} • Ready"
                                     },
@@ -319,20 +290,12 @@ fun HomeScreen(
                             }
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF10B981).copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = "Active",
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.CheckCircle,
+                            contentDescription = "Active",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -345,7 +308,7 @@ private fun StepInstructionRow(step: String, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(22.dp)
+                .size(20.dp)
                 .clip(CircleShape)
                 .background(CrimsonRed),
             contentAlignment = Alignment.Center
@@ -354,7 +317,7 @@ private fun StepInstructionRow(step: String, text: String) {
                 text = step,
                 color = TextPureWhite,
                 fontWeight = FontWeight.Bold,
-                fontSize = 11.sp
+                fontSize = 10.sp
             )
         }
         Spacer(modifier = Modifier.width(10.dp))

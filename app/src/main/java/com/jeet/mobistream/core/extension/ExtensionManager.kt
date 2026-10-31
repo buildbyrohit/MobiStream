@@ -39,6 +39,70 @@ object ExtensionManager {
         return dir
     }
 
+    val SK_TECH_SUB_PROVIDERS = listOf(
+        "BIG BOSS",
+        "Family Full House With Rohit Sharma",
+        "FC LIVE",
+        "SONY LIVE",
+        "SONY LIVE 2",
+        "JTV+",
+        "JTV",
+        "JTV WW",
+        "JIOSTAR",
+        "VZY",
+        "ZEE GLOBAL",
+        "ZEE FIVE",
+        "ZEE5_WW",
+        "SONY-LIV",
+        "SONY-LIV WW",
+        "JIO CINEMA",
+        "SUN NXT",
+        "DISH TV",
+        "WAVES OTT",
+        "SPORTS WORLD",
+        "SPORTS EVENT",
+        "CRIC HD",
+        "MOVIES",
+        "KAPIL SHOW S4",
+        "KIDS TV",
+        "BENGALI",
+        "ODIA",
+        "MARATHI",
+        "TAMIL",
+        "TELUGU",
+        "MALAYALAM",
+        "KANNADA",
+        "PUNJABI",
+        "BHOJPURI",
+        "GUJARATI",
+        "ASSAMESE",
+        "URDU",
+        "MUSIC",
+        "NEWS",
+        "DEVOTIONAL",
+        "ASTROLOGY",
+        "DOCUMENTARY",
+        "LIFESTYLE",
+        "FOOD",
+        "TRAVEL",
+        "AUTO",
+        "SHOPPING",
+        "ENTERTAINMENT",
+        "INFOTAINMENT"
+    )
+
+    fun getSubProvidersFor(internalName: String): List<String> {
+        return if (internalName.contains("SKTech", ignoreCase = true)) {
+            SK_TECH_SUB_PROVIDERS
+        } else if (internalName.contains("MovieBox", ignoreCase = true)) {
+            listOf("Server 1 (Direct CDN)", "Server 2 (Fast Stream)", "Server 3 (HLS Mirror)", "Server 4 (VIP 1080p)")
+        } else if (internalName.contains("Castle", ignoreCase = true)) {
+            listOf("Castle Movies", "Castle Series", "Live TV Streams", "Anime HD")
+        } else {
+            emptyList()
+        }
+    }
+
     /**
      * Resolves shortcodes (msr, jeet, rohit, mobistream) to the official MSR repo manifest.
      */
@@ -129,17 +193,17 @@ object ExtensionManager {
                                 authors.add(authorsArray.getString(a))
                             }
 
-                            // Check if provider has configurable sub-providers (e.g. SK Tech has sports streams)
-                            val isConfigurable = internalName.contains("SKTech", ignoreCase = true) ||
-                                    internalName.contains("MovieBox", ignoreCase = true)
+                            // Check if provider has configurable sub-providers (e.g. SK Tech, MovieBox, Castle)
+                            val subProviders = getSubProvidersFor(internalName)
+                            val isConfigurable = subProviders.isNotEmpty()
 
-                            val subProviders = if (internalName.contains("SKTech", ignoreCase = true)) {
-                                listOf("Star Sports Hindi HD", "Sony Sports Ten 1", "Sports18 1 HD", "Willow TV HD", "FanCode Live")
-                            } else if (internalName.contains("MovieBox", ignoreCase = true)) {
-                                listOf("Server 1 (Direct CDN)", "Server 2 (Fast Stream)", "Server 3 (HLS Mirror)")
-                            } else emptyList()
+                            // If SK Tech, default to checking popular live sports & feeds if not yet customized
+                            val defaultEnabled = if (internalName.contains("SKTech", ignoreCase = true)) {
+                                listOf("FC LIVE", "SONY LIVE", "SONY LIVE 2", "JTV+", "JIOSTAR", "SPORTS WORLD", "CRIC HD")
+                            } else subProviders
 
-                            val enabledSubs = prefs.getStringSet("$KEY_SUB_PREFIX$internalName", subProviders.toSet())?.toList() ?: subProviders
+                            val savedSet = prefs.getStringSet("$KEY_SUB_PREFIX$internalName", null)
+                            val enabledSubs = savedSet?.toList() ?: defaultEnabled
 
                             extensions.add(
                                 ExtensionItem(
@@ -270,6 +334,12 @@ object ExtensionManager {
         prefs.edit().putStringSet("$KEY_SUB_PREFIX$internalName", current).apply()
     }
 
+    fun setAllSubProvidersEnabled(context: Context, internalName: String, subProviders: List<String>, enabled: Boolean) {
+        val prefs = getPrefs(context)
+        val set = if (enabled) subProviders.toSet() else emptySet()
+        prefs.edit().putStringSet("$KEY_SUB_PREFIX$internalName", set).apply()
+    }
+
     /**
      * Retrieves all saved repositories.
      */
@@ -385,13 +455,21 @@ object ExtensionManager {
                     authors.add(authorsArr.getString(a))
                 }
 
-                val subsArr = obj.optJSONArray("subProviders") ?: JSONArray()
-                val subProviders = mutableListOf<String>()
-                for (s in 0 until subsArr.length()) {
-                    subProviders.add(subsArr.getString(s))
+                val subProviders = getSubProvidersFor(internalName).ifEmpty {
+                    val subsArr = obj.optJSONArray("subProviders") ?: JSONArray()
+                    val sList = mutableListOf<String>()
+                    for (s in 0 until subsArr.length()) {
+                        sList.add(subsArr.getString(s))
+                    }
+                    sList
                 }
 
-                val enabledSubs = prefs.getStringSet("$KEY_SUB_PREFIX$internalName", subProviders.toSet())?.toList() ?: subProviders
+                val defaultEnabled = if (internalName.contains("SKTech", ignoreCase = true)) {
+                    listOf("FC LIVE", "SONY LIVE", "SONY LIVE 2", "JTV+", "JIOSTAR", "SPORTS WORLD", "CRIC HD")
+                } else subProviders
+
+                val savedSet = prefs.getStringSet("$KEY_SUB_PREFIX$internalName", null)
+                val enabledSubs = savedSet?.toList() ?: defaultEnabled
 
                 list.add(
                     ExtensionItem(
@@ -408,7 +486,7 @@ object ExtensionManager {
                         isInstalled = isInstalled,
                         isEnabled = isEnabled,
                         localPath = if (isInstalled) localFile.absolutePath else null,
-                        hasSubProviders = obj.optBoolean("hasSubProviders", false),
+                        hasSubProviders = subProviders.isNotEmpty(),
                         subProviders = subProviders,
                         enabledSubProviders = enabledSubs
                     )

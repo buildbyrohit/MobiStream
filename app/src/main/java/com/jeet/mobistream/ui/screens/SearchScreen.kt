@@ -174,8 +174,7 @@ fun SearchScreen() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        specularAlpha = 0.2f
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier

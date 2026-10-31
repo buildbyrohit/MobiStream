@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.HighQuality
@@ -54,6 +55,8 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -897,7 +900,7 @@ private fun PlayerSettingsScreen(
 }
 
 // ====================================================================
-// 3. EXTENSION SETTINGS SUB-SCREEN (2-Level CloudStream UX Hierarchy)
+// 3. EXTENSION SETTINGS SUB-SCREEN (CloudStream Minimal UX Hierarchy)
 // ====================================================================
 @Composable
 private fun ExtensionSettingsScreen(
@@ -907,15 +910,18 @@ private fun ExtensionSettingsScreen(
     val haptics = rememberHaptics()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    // Level 1 vs Level 2 State: if selectedRepo == null -> Level 1 (Repo list), else Level 2 (Providers in repo)
+    // Navigation State:
+    // Level 1: selectedRepo == null && subProviderTarget == null -> Repositories List
+    // Level 2: selectedRepo != null && subProviderTarget == null -> Providers inside Repo
+    // Level 3: subProviderTarget != null -> Full-Screen Sub-Provider Settings (CloudStream Checkbox List)
     var selectedRepo by remember { mutableStateOf<com.jeet.mobistream.core.extension.RepositoryMeta?>(null) }
+    var subProviderTarget by remember { mutableStateOf<com.jeet.mobistream.core.extension.ExtensionItem?>(null) }
     val savedRepositories = remember { mutableStateListOf<com.jeet.mobistream.core.extension.RepositoryMeta>() }
 
-    // Dialog States
+    // Dialog & Task States
     var showAddRepoDialog by remember { mutableStateOf(false) }
     var repoInput by remember { mutableStateOf("") }
     var isAddingRepo by remember { mutableStateOf(false) }
-    var subProviderConfigTarget by remember { mutableStateOf<com.jeet.mobistream.core.extension.ExtensionItem?>(null) }
 
     // Level 2 Provider State
     val repoPlugins = remember { mutableStateListOf<com.jeet.mobistream.core.extension.ExtensionItem>() }
@@ -959,9 +965,172 @@ private fun ExtensionSettingsScreen(
         }
     }
 
-    if (selectedRepo == null) {
+    if (subProviderTarget != null) {
         // ================================================================
-        // LEVEL 1: REPOSITORIES LIST WITH FLOATING [+] ACTION BUTTON
+        // LEVEL 3: DEDICATED FULL-SCREEN SUB-PROVIDER SETTINGS (IMAGE 1 EXACT UX)
+        // ================================================================
+        val target = subProviderTarget!!
+        val enabledSubs = remember { mutableStateListOf<String>().apply { addAll(target.enabledSubProviders) } }
+        val allSubs = target.subProviders
+        val isAllSelected = enabledSubs.size == allSubs.size
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(AmoledBlack)
+        ) {
+            // Top Bar matching CloudStream
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            haptics.lightClick()
+                            subProviderTarget = null
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = TextPureWhite,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${target.name} Settings",
+                        color = TextPureWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+
+                // Select / Deselect All Icon in Top Right
+                IconButton(
+                    onClick = {
+                        haptics.mediumClick()
+                        if (isAllSelected) {
+                            enabledSubs.clear()
+                            com.jeet.mobistream.core.extension.ExtensionManager.setAllSubProvidersEnabled(
+                                context,
+                                target.internalName,
+                                allSubs,
+                                false
+                            )
+                        } else {
+                            enabledSubs.clear()
+                            enabledSubs.addAll(allSubs)
+                            com.jeet.mobistream.core.extension.ExtensionManager.setAllSubProvidersEnabled(
+                                context,
+                                target.internalName,
+                                allSubs,
+                                true
+                            )
+                        }
+                        val idx = repoPlugins.indexOf(target)
+                        if (idx != -1) {
+                            repoPlugins[idx] = target.copy(enabledSubProviders = enabledSubs.toList())
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DoneAll,
+                        contentDescription = "Toggle All",
+                        tint = if (isAllSelected) Color(0xFF3B82F6) else TextSoftMuted,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            // Subtitle
+            Text(
+                text = "Select the providers you want to load",
+                color = TextSoftMuted,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Checkbox List (Exact to Image 1)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(AmoledBlack),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
+            ) {
+                items(allSubs, key = { it }) { subName ->
+                    val isChecked = enabledSubs.contains(subName)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                haptics.selectionTick()
+                                val willBeChecked = !isChecked
+                                if (willBeChecked) {
+                                    enabledSubs.add(subName)
+                                } else {
+                                    enabledSubs.remove(subName)
+                                }
+                                com.jeet.mobistream.core.extension.ExtensionManager.setSubProviderEnabled(
+                                    context,
+                                    target.internalName,
+                                    subName,
+                                    willBeChecked
+                                )
+                                val idx = repoPlugins.indexOf(target)
+                                if (idx != -1) {
+                                    repoPlugins[idx] = target.copy(enabledSubProviders = enabledSubs.toList())
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                haptics.selectionTick()
+                                if (checked) {
+                                    enabledSubs.add(subName)
+                                } else {
+                                    enabledSubs.remove(subName)
+                                }
+                                com.jeet.mobistream.core.extension.ExtensionManager.setSubProviderEnabled(
+                                    context,
+                                    target.internalName,
+                                    subName,
+                                    checked
+                                )
+                                val idx = repoPlugins.indexOf(target)
+                                if (idx != -1) {
+                                    repoPlugins[idx] = target.copy(enabledSubProviders = enabledSubs.toList())
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF3B82F6),
+                                uncheckedColor = Color(0xFF6B7280),
+                                checkmarkColor = Color.White
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = subName,
+                            color = TextPureWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    } else if (selectedRepo == null) {
+        // ================================================================
+        // LEVEL 1: REPOSITORIES LIST (MINIMAL AMOLED UX)
         // ================================================================
         Box(
             modifier = Modifier
@@ -975,7 +1144,7 @@ private fun ExtensionSettingsScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp)
             ) {
                 item {
-                    SubPageTopBar(title = "Extension Repositories", onBack = onBack)
+                    SubPageTopBar(title = "Extensions", onBack = onBack)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -987,26 +1156,26 @@ private fun ExtensionSettingsScreen(
                     item {
                         LiquidGlassSurface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(28.dp),
+                                    .padding(26.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(56.dp)
+                                        .size(52.dp)
                                         .clip(CircleShape)
-                                        .background(GlassSurfaceDark),
+                                        .background(Color(0xFF141414)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Extension,
                                         contentDescription = null,
                                         tint = CrimsonRed,
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(14.dp))
@@ -1014,11 +1183,11 @@ private fun ExtensionSettingsScreen(
                                     text = "No Repositories Installed",
                                     color = TextPureWhite,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                                    fontSize = 15.sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "CloudStream & MSR repositories are not bundled by default.\nTap the + button below to add your first repository (or type shortcode 'msr').",
+                                    text = "MobiStream is modular. Tap the + button to add a repository (or type shortcode 'msr').",
                                     color = TextSoftMuted,
                                     fontSize = 12.sp,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1037,13 +1206,12 @@ private fun ExtensionSettingsScreen(
                                     haptics.mediumClick()
                                     selectedRepo = repo
                                 },
-                            shape = RoundedCornerShape(18.dp),
-                            specularAlpha = 0.28f
+                            shape = RoundedCornerShape(14.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -1057,51 +1225,41 @@ private fun ExtensionSettingsScreen(
                                             contentDescription = repo.name,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
-                                                .size(46.dp)
-                                                .clip(RoundedCornerShape(12.dp))
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(10.dp))
                                         )
                                     } else {
                                         Box(
                                             modifier = Modifier
-                                                .size(46.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(GlassSurfaceDark),
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color(0xFF161616)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Extension,
                                                 contentDescription = null,
                                                 tint = CrimsonRed,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
 
                                     Column {
                                         Text(
                                             text = repo.name,
                                             color = TextPureWhite,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 14.sp
                                         )
-                                        if (repo.description.isNotEmpty()) {
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = repo.description,
-                                                color = TextSoftMuted,
-                                                fontSize = 11.sp,
-                                                maxLines = 1
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            LiquidGlassBadge(
-                                                text = if (repo.providerCount > 0) "${repo.providerCount} Providers" else "Manifest v${repo.manifestVersion}",
-                                                accentColor = Color(0xFF10B981)
-                                            )
-                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${repo.providerCount} Providers",
+                                            color = TextSoftMuted,
+                                            fontSize = 11.sp
+                                        )
                                     }
                                 }
 
@@ -1113,26 +1271,26 @@ private fun ExtensionSettingsScreen(
                                             savedRepositories.remove(repo)
                                             Toast.makeText(context, "${repo.name} removed", Toast.LENGTH_SHORT).show()
                                         },
-                                        modifier = Modifier.size(36.dp)
+                                        modifier = Modifier.size(34.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.DeleteOutline,
                                             contentDescription = "Remove Repository",
                                             tint = TextDeepDim,
-                                            modifier = Modifier.size(19.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
                                         contentDescription = "Open",
-                                        tint = TextSoftMuted,
-                                        modifier = Modifier.size(14.dp)
+                                        tint = TextDeepDim,
+                                        modifier = Modifier.size(13.dp)
                                     )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
 
@@ -1140,7 +1298,7 @@ private fun ExtensionSettingsScreen(
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
                     SubSectionHeader("AUTOMATION")
-                    LiquidGlassSurface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                    LiquidGlassSurface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                         SettingsToggleItem(
                             icon = Icons.Rounded.Refresh,
                             title = "Auto-update Extensions",
@@ -1152,14 +1310,14 @@ private fun ExtensionSettingsScreen(
                 }
             }
 
-            // Floating Plus [+] Icon Button (Bottom Right)
+            // Minimal Floating Plus [+] Icon Button (Bottom Right)
             LiquidGlassSurface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 100.dp)
-                    .size(58.dp),
+                    .padding(end = 20.dp, bottom = 95.dp)
+                    .size(54.dp),
                 shape = CircleShape,
-                specularAlpha = 0.5f,
+                borderWidth = 0.dp,
                 tint = CrimsonRed,
                 onClick = {
                     haptics.heavyClick()
@@ -1172,14 +1330,14 @@ private fun ExtensionSettingsScreen(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "Add Extension Repository",
                         tint = TextPureWhite,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
         }
     } else {
         // ================================================================
-        // LEVEL 2: PROVIDERS INSIDE SELECTED REPOSITORY (CloudStream Detail UX)
+        // LEVEL 2: PROVIDERS INSIDE SELECTED REPOSITORY (MINIMAL CLEAN UX)
         // ================================================================
         val currentRepo = selectedRepo!!
         LazyColumn(
@@ -1198,96 +1356,94 @@ private fun ExtensionSettingsScreen(
                         refreshSavedRepos()
                     }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Repository Header Overview Card
+            // Minimal Header Overview Card
             item {
                 LiquidGlassSurface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    specularAlpha = 0.35f
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = currentRepo.name,
-                                    color = TextPureWhite,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "${repoPlugins.size} Providers Available • Manifest v${currentRepo.manifestVersion}",
-                                    color = TextSoftMuted,
-                                    fontSize = 11.sp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${repoPlugins.size} Providers Available",
+                                color = TextPureWhite,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "Manifest v${currentRepo.manifestVersion}",
+                                color = TextSoftMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    haptics.mediumClick()
+                                    isLoadingPlugins = true
+                                    scope.launch {
+                                        val res = com.jeet.mobistream.core.extension.ExtensionManager.fetchRepository(context, currentRepo.url)
+                                        isLoadingPlugins = false
+                                        res.onSuccess { meta ->
+                                            repoPlugins.clear()
+                                            repoPlugins.addAll(meta.plugins)
+                                            refreshSavedRepos()
+                                            Toast.makeText(context, "Repository updated!", Toast.LENGTH_SHORT).show()
+                                        }.onFailure {
+                                            Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = TextPureWhite,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        haptics.mediumClick()
-                                        isLoadingPlugins = true
-                                        scope.launch {
-                                            val res = com.jeet.mobistream.core.extension.ExtensionManager.fetchRepository(context, currentRepo.url)
-                                            isLoadingPlugins = false
-                                            res.onSuccess { meta ->
-                                                repoPlugins.clear()
-                                                repoPlugins.addAll(meta.plugins)
-                                                refreshSavedRepos()
-                                                Toast.makeText(context, "Repository updated!", Toast.LENGTH_SHORT).show()
-                                            }.onFailure {
-                                                Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Refresh,
-                                        contentDescription = "Refresh",
-                                        tint = TextPureWhite,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Button(
-                                    onClick = {
-                                        haptics.heavyClick()
-                                        scope.launch {
-                                            repoPlugins.forEach { ext ->
-                                                if (!ext.isInstalled) {
-                                                    downloadingIds.add(ext.internalName)
-                                                    val dlRes = com.jeet.mobistream.core.extension.ExtensionManager.downloadExtension(context, ext)
-                                                    downloadingIds.remove(ext.internalName)
-                                                    if (dlRes.isSuccess) {
-                                                        val idx = repoPlugins.indexOf(ext)
-                                                        if (idx != -1) {
-                                                            repoPlugins[idx] = ext.copy(isInstalled = true, isEnabled = true)
-                                                        }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Button(
+                                onClick = {
+                                    haptics.heavyClick()
+                                    scope.launch {
+                                        repoPlugins.forEach { ext ->
+                                            if (!ext.isInstalled) {
+                                                downloadingIds.add(ext.internalName)
+                                                val dlRes = com.jeet.mobistream.core.extension.ExtensionManager.downloadExtension(context, ext)
+                                                downloadingIds.remove(ext.internalName)
+                                                if (dlRes.isSuccess) {
+                                                    val idx = repoPlugins.indexOf(ext)
+                                                    if (idx != -1) {
+                                                        repoPlugins[idx] = ext.copy(isInstalled = true, isEnabled = true)
                                                     }
                                                 }
                                             }
-                                            Toast.makeText(context, "All providers installed successfully!", Toast.LENGTH_SHORT).show()
                                         }
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Install All", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                }
+                                        Toast.makeText(context, "All providers installed!", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 5.dp)
+                            ) {
+                                Text("Install All", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Providers List Header
@@ -1303,19 +1459,19 @@ private fun ExtensionSettingsScreen(
                             .padding(40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(color = CrimsonRed, modifier = Modifier.size(36.dp))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Loading providers from repository...", color = TextSoftMuted, fontSize = 12.sp)
+                        CircularProgressIndicator(color = CrimsonRed, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("Loading providers...", color = TextSoftMuted, fontSize = 12.sp)
                     }
                 }
             } else if (repoPlugins.isEmpty()) {
                 item {
-                    LiquidGlassSurface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                    LiquidGlassSurface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                         Text(
                             text = "No providers found in this repository.",
                             color = TextSoftMuted,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(18.dp)
                         )
                     }
                 }
@@ -1325,17 +1481,16 @@ private fun ExtensionSettingsScreen(
 
                     LiquidGlassSurface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        specularAlpha = 0.25f
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Left: Provider icon + details
+                            // Left: Provider icon + clean details
                             Row(
                                 modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1346,61 +1501,45 @@ private fun ExtensionSettingsScreen(
                                         contentDescription = ext.name,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                     )
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(GlassSurfaceDark),
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFF161616)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = ext.name.take(2).uppercase(),
                                             color = CrimsonRed,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
+                                            fontSize = 14.sp
                                         )
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(14.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
                                 Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = ext.name,
-                                            color = TextPureWhite,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        LiquidGlassBadge(ext.language.uppercase(), accentColor = CrimsonRed)
-                                        if (ext.hasSubProviders) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            LiquidGlassBadge("CONFIGURABLE", accentColor = Color(0xFF3B82F6))
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "v${ext.version} • ${ext.authors.firstOrNull() ?: "buildbyrohit"}",
-                                        color = TextSoftMuted,
-                                        fontSize = 10.sp
+                                        text = ext.name,
+                                        color = TextPureWhite,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp
                                     )
-                                    if (ext.description.isNotEmpty()) {
-                                        Text(
-                                            text = ext.description,
-                                            color = TextDeepDim,
-                                            fontSize = 10.sp,
-                                            maxLines = 1
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.height(1.dp))
+                                    Text(
+                                        text = "v${ext.version} • ${ext.authors.firstOrNull() ?: "MSR"}",
+                                        color = TextSoftMuted,
+                                        fontSize = 11.sp
+                                    )
                                 }
                             }
 
-                            // Right: Install vs Config / Switch / Uninstall
+                            // Right: Minimal Actions
                             if (!ext.isInstalled) {
                                 Button(
                                     onClick = {
@@ -1422,12 +1561,12 @@ private fun ExtensionSettingsScreen(
                                         }
                                     },
                                     enabled = !isDownloading,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 5.dp)
                                 ) {
                                     Text(
-                                        text = if (isDownloading) "Downloading..." else "Install",
+                                        text = if (isDownloading) "..." else "Install",
                                         color = TextPureWhite,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp
@@ -1435,23 +1574,23 @@ private fun ExtensionSettingsScreen(
                                 }
                             } else {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // Config / Edit button for sub-providers (e.g. SK Tech live feeds)
+                                    // Config icon for providers with sub-providers (e.g. SK Tech)
                                     if (ext.hasSubProviders) {
                                         IconButton(
                                             onClick = {
                                                 haptics.lightClick()
-                                                subProviderConfigTarget = ext
+                                                subProviderTarget = ext
                                             },
                                             modifier = Modifier.size(34.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Tune,
-                                                contentDescription = "Configure Sub-Providers",
-                                                tint = CrimsonRed,
+                                                contentDescription = "Configure",
+                                                tint = Color(0xFF3B82F6),
                                                 modifier = Modifier.size(19.dp)
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(2.dp))
                                     }
 
                                     // Enable/Disable Switch
@@ -1469,11 +1608,11 @@ private fun ExtensionSettingsScreen(
                                             checkedThumbColor = TextPureWhite,
                                             checkedTrackColor = Color(0xFF10B981),
                                             uncheckedThumbColor = TextDeepDim,
-                                            uncheckedTrackColor = GlassSurfaceDark
+                                            uncheckedTrackColor = Color(0xFF1C1C1C)
                                         )
                                     )
 
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
 
                                     // Uninstall Button
                                     IconButton(
@@ -1499,7 +1638,7 @@ private fun ExtensionSettingsScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
@@ -1513,24 +1652,24 @@ private fun ExtensionSettingsScreen(
             onDismissRequest = {
                 if (!isAddingRepo) showAddRepoDialog = false
             },
-            containerColor = Color(0xFF0F0F0F),
-            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF111111),
+            shape = RoundedCornerShape(18.dp),
             title = {
                 Text(
-                    text = "Add Extension Repository",
+                    text = "Add Repository",
                     color = TextPureWhite,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
+                    fontSize = 16.sp
                 )
             },
             text = {
                 Column {
                     Text(
-                        text = "Enter a shortcode or repository manifest URL to fetch providers.",
+                        text = "Enter shortcode (msr, jeet) or repo manifest URL",
                         color = TextSoftMuted,
                         fontSize = 12.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Quick Shortcode Chips
                     Row(
@@ -1540,36 +1679,36 @@ private fun ExtensionSettingsScreen(
                         listOf("msr", "jeet", "mobistream").forEach { chip ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (repoInput == chip) CrimsonRed else GlassSurfaceDark)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (repoInput == chip) CrimsonRed else Color(0xFF1C1C1C))
                                     .clickable {
                                         haptics.selectionTick()
                                         repoInput = chip
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(
                                     text = chip,
                                     color = TextPureWhite,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
                         value = repoInput,
                         onValueChange = { repoInput = it },
-                        placeholder = { Text("e.g. msr or https://...", color = TextDeepDim, fontSize = 13.sp) },
+                        placeholder = { Text("e.g. msr", color = TextDeepDim, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = CrimsonRed,
-                            unfocusedBorderColor = GlassBorderStroke,
+                            unfocusedBorderColor = Color(0xFF262626),
                             focusedTextColor = TextPureWhite,
                             unfocusedTextColor = TextPureWhite,
                             cursorColor = CrimsonRed
@@ -1577,15 +1716,15 @@ private fun ExtensionSettingsScreen(
                     )
 
                     if (isAddingRepo) {
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            CircularProgressIndicator(color = CrimsonRed, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text("Connecting to repository...", color = TextSoftMuted, fontSize = 12.sp)
+                            CircularProgressIndicator(color = CrimsonRed, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Connecting...", color = TextSoftMuted, fontSize = 11.sp)
                         }
                     }
                 }
@@ -1616,9 +1755,9 @@ private fun ExtensionSettingsScreen(
                     },
                     enabled = !isAddingRepo,
                     colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Add Repository", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("Add", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             },
             dismissButton = {
@@ -1628,97 +1767,6 @@ private fun ExtensionSettingsScreen(
                     }
                 ) {
                     Text("Cancel", color = TextSoftMuted, fontSize = 12.sp)
-                }
-            }
-        )
-    }
-
-    // ====================================================================
-    // DIALOG: SUB-PROVIDER CONFIGURATION (e.g. SK Tech Live Sports Feeds)
-    // ====================================================================
-    if (subProviderConfigTarget != null) {
-        val target = subProviderConfigTarget!!
-        val enabledSubs = remember { mutableStateListOf<String>().apply { addAll(target.enabledSubProviders) } }
-
-        AlertDialog(
-            onDismissRequest = { subProviderConfigTarget = null },
-            containerColor = Color(0xFF0F0F0F),
-            shape = RoundedCornerShape(22.dp),
-            title = {
-                Column {
-                    Text(
-                        text = "${target.name} Feeds",
-                        color = TextPureWhite,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Enable or disable individual sports & live server mirrors",
-                        color = TextSoftMuted,
-                        fontSize = 11.sp
-                    )
-                }
-            },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    target.subProviders.forEach { subName ->
-                        val isSubChecked = enabledSubs.contains(subName)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = subName,
-                                color = TextPureWhite,
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(
-                                checked = isSubChecked,
-                                onCheckedChange = { checked ->
-                                    haptics.selectionTick()
-                                    if (checked) {
-                                        enabledSubs.add(subName)
-                                    } else {
-                                        enabledSubs.remove(subName)
-                                    }
-                                    com.jeet.mobistream.core.extension.ExtensionManager.setSubProviderEnabled(
-                                        context,
-                                        target.internalName,
-                                        subName,
-                                        checked
-                                    )
-                                    // Update in-memory repoPlugins
-                                    val idx = repoPlugins.indexOf(target)
-                                    if (idx != -1) {
-                                        repoPlugins[idx] = target.copy(enabledSubProviders = enabledSubs.toList())
-                                    }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = TextPureWhite,
-                                    checkedTrackColor = Color(0xFF10B981),
-                                    uncheckedThumbColor = TextDeepDim,
-                                    uncheckedTrackColor = GlassSurfaceDark
-                                )
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        haptics.lightClick()
-                        subProviderConfigTarget = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Done", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         )

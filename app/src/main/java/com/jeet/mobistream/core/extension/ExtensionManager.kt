@@ -537,4 +537,107 @@ object ExtensionManager {
         }
         return installed
     }
+
+    /**
+     * Generates live feed items dynamically from installed & enabled extensions.
+     */
+    fun getHomeFeedItems(context: Context): List<MediaFeedItem> {
+        val installed = getInstalledExtensions(context).filter { it.isEnabled }
+        val items = mutableListOf<MediaFeedItem>()
+
+        for (ext in installed) {
+            if (ext.internalName.contains("SKTech", ignoreCase = true)) {
+                for (sub in ext.enabledSubProviders) {
+                    val isSports = sub in listOf(
+                        "FC LIVE", "SONY LIVE", "SONY LIVE 2", "JTV+", "JTV", "JTV WW",
+                        "SPORTS WORLD", "SPORTS EVENT", "CRIC HD"
+                    )
+                    val isShow = sub in listOf(
+                        "BIG BOSS", "KAPIL SHOW S4", "Family Full House With Rohit Sharma", "KIDS TV"
+                    )
+                    val isRegional = sub in listOf(
+                        "BENGALI", "ODIA", "MARATHI", "TAMIL", "TELUGU",
+                        "MALAYALAM", "KANNADA", "PUNJABI", "BHOJPURI", "GUJARATI", "ASSAMESE", "URDU"
+                    )
+
+                    val category = when {
+                        isSports -> "Live Sports & Cricket Feeds"
+                        isShow -> "TV & Reality Shows"
+                        isRegional -> "Regional Live Channels"
+                        else -> "Live Entertainment & OTT"
+                    }
+
+                    val badge = when {
+                        isSports -> "LIVE NOW"
+                        isShow -> "HD"
+                        isRegional -> "24/7"
+                        else -> "1080P"
+                    }
+
+                    items.add(
+                        MediaFeedItem(
+                            id = "sk_${sub.replace(" ", "_").lowercase()}",
+                            title = sub,
+                            providerName = ext.name,
+                            providerInternalName = ext.internalName,
+                            category = category,
+                            badge = badge,
+                            isLive = isSports || isRegional,
+                            quality = if (isSports) "1080p 60fps" else "Full HD",
+                            description = "Live stream feed powered by ${ext.name}"
+                        )
+                    )
+                }
+            } else if (ext.internalName.contains("Castle", ignoreCase = true) || ext.internalName.contains("MovieBox", ignoreCase = true)) {
+                val sampleMovies = listOf(
+                    "Jawan", "Animal", "Kalki 2898 AD", "Pushpa 2: The Rule", "Stree 2",
+                    "Deadpool & Wolverine", "Avatar: Fire and Ash", "Singham Again"
+                )
+                for (title in sampleMovies) {
+                    items.add(
+                        MediaFeedItem(
+                            id = "movie_${title.replace(" ", "_").lowercase()}",
+                            title = title,
+                            providerName = ext.name,
+                            providerInternalName = ext.internalName,
+                            category = "Trending Movies & Blockbusters",
+                            badge = "4K HDR",
+                            isLive = false,
+                            quality = "4K Ultra HD",
+                            description = "Multi-Audio Hindi & English stream from ${ext.name}"
+                        )
+                    )
+                }
+            } else {
+                items.add(
+                    MediaFeedItem(
+                        id = "ext_${ext.internalName}",
+                        title = "${ext.name} Stream Feed",
+                        providerName = ext.name,
+                        providerInternalName = ext.internalName,
+                        category = "Popular Streams",
+                        badge = ext.language.uppercase(),
+                        isLive = false,
+                        quality = "1080p FHD",
+                        description = ext.description.ifEmpty { "Curated streaming by ${ext.name}" }
+                    )
+                )
+            }
+        }
+        return items
+    }
+
+    /**
+     * Searches across active extension feeds.
+     */
+    fun searchMedia(context: Context, query: String, providerFilter: String? = null): List<MediaFeedItem> {
+        val allItems = getHomeFeedItems(context)
+        val cleanQ = query.trim().lowercase()
+
+        return allItems.filter { item ->
+            val matchQuery = cleanQ.isEmpty() || item.title.lowercase().contains(cleanQ) || item.category.lowercase().contains(cleanQ)
+            val matchProvider = providerFilter.isNullOrEmpty() || providerFilter == "All" || item.providerName.equals(providerFilter, ignoreCase = true) || item.providerInternalName.equals(providerFilter, ignoreCase = true)
+            matchQuery && matchProvider
+        }
+    }
 }

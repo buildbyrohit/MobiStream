@@ -30,3 +30,17 @@ data class ExtensionItem(
     val subProviders: List<String> = emptyList(),
     val enabledSubProviders: List<String> = emptyList()
 )
+
+data class MediaFeedItem(
+    val id: String,
+    val title: String,
+    val providerName: String,
+    val providerInternalName: String,
+    val posterUrl: String? = null,
+    val category: String, // e.g. "Live Sports", "Trending Movies", "TV Shows", "Regional"
+    val badge: String,    // e.g. "LIVE", "4K HDR", "1080P"
+    val isLive: Boolean = false,
+    val streamUrl: String = "",
+    val quality: String = "1080p 60fps",
+    val description: String = ""
+)

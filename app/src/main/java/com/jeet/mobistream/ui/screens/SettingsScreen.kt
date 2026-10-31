@@ -1294,9 +1294,95 @@ private fun ExtensionSettingsScreen(
                     }
                 }
 
+                // CloudStream Extension Status Indicator Bar
+                if (savedRepositories.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        val allInstalled = remember(savedRepositories) { com.jeet.mobistream.core.extension.ExtensionManager.getInstalledExtensions(context) }
+                        val downloadedAndEnabled = allInstalled.count { it.isEnabled }
+                        val downloadedAndDisabled = allInstalled.count { !it.isEnabled }
+                        val totalCount = savedRepositories.sumOf { it.providerCount }
+                        val notDownloaded = maxOf(0, totalCount - allInstalled.size)
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF101010))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "Extensions Status",
+                                color = TextPureWhite,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 3-color segmented bar
+                            val totalFloat = maxOf(1f, totalCount.toFloat())
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                            ) {
+                                if (downloadedAndEnabled > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(downloadedAndEnabled.toFloat() / totalFloat)
+                                            .fillMaxSize()
+                                            .background(Color(0xFF10B981))
+                                    )
+                                }
+                                if (downloadedAndDisabled > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(downloadedAndDisabled.toFloat() / totalFloat)
+                                            .fillMaxSize()
+                                            .background(Color(0xFFF59E0B))
+                                    )
+                                }
+                                if (notDownloaded > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(notDownloaded.toFloat() / totalFloat)
+                                            .fillMaxSize()
+                                            .background(Color(0xFF262626))
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Active: $downloadedAndEnabled", color = TextSoftMuted, fontSize = 10.sp)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFF59E0B)))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Disabled: $downloadedAndDisabled", color = TextSoftMuted, fontSize = 10.sp)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4B5563)))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Available: $notDownloaded", color = TextSoftMuted, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Automation section
                 item {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     SubSectionHeader("AUTOMATION")
                     LiquidGlassSurface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                         SettingsToggleItem(
@@ -1310,13 +1396,12 @@ private fun ExtensionSettingsScreen(
                 }
             }
 
-            // Minimal Floating Plus [+] Icon Button (Bottom Right)
+            // CloudStream Extended Floating Action Button (Bottom Right)
             LiquidGlassSurface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 95.dp)
-                    .size(54.dp),
-                shape = CircleShape,
+                    .padding(end = 20.dp, bottom = 95.dp),
+                shape = RoundedCornerShape(26.dp),
                 borderWidth = 0.dp,
                 tint = CrimsonRed,
                 onClick = {
@@ -1325,12 +1410,22 @@ private fun ExtensionSettingsScreen(
                     showAddRepoDialog = true
                 }
             ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "Add Extension Repository",
                         tint = TextPureWhite,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Add repository",
+                        color = TextPureWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
                     )
                 }
             }

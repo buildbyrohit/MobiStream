@@ -73,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -298,51 +299,6 @@ fun SettingsScreen() {
             }
             SettingsSubPage.EXTENSION -> {
                 ExtensionSettingsScreen(
-                    installedRepos = installedRepositories,
-                    repoInput = repoInputText,
-                    onRepoInputChange = { repoInputText = it },
-                    onAddRepo = {
-                        val input = repoInputText.trim()
-                        if (input.isEmpty()) {
-                            Toast.makeText(context, "Please enter a shortcode or repository URL", Toast.LENGTH_SHORT).show()
-                            return@ExtensionSettingsScreen
-                        }
-
-                        haptics.mediumClick()
-                        val lower = input.lowercase()
-                        if (lower in setOf("msr", "jeet", "rohit", "mobistream") || input.contains("msr", ignoreCase = true)) {
-                            // Add MSR
-                            if (installedRepositories.none { it.name.contains("MSR") }) {
-                                installedRepositories.add(
-                                    InstalledRepo(
-                                        name = "MSR (MobiStream Repo)",
-                                        url = "https://raw.githubusercontent.com/buildbyrohit/msr/builds/repo.json",
-                                        providerCount = 7
-                                    )
-                                )
-                                Toast.makeText(context, "MSR Repository successfully installed! (7 Providers)", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "MSR Repository is already installed", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            installedRepositories.add(
-                                InstalledRepo(
-                                    name = "Custom Repo (${input.take(15)})",
-                                    url = input,
-                                    providerCount = 1
-                                )
-                            )
-                            Toast.makeText(context, "Custom Repository added successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                        repoInputText = ""
-                    },
-                    onDeleteRepo = { repo ->
-                        haptics.lightClick()
-                        installedRepositories.remove(repo)
-                        Toast.makeText(context, "Repository removed", Toast.LENGTH_SHORT).show()
-                    },
-                    autoUpdate = autoUpdateExtensions,
-                    onAutoUpdateChange = { autoUpdateExtensions = it },
                     onBack = {
                         haptics.lightClick()
                         currentPage = SettingsSubPage.MAIN
@@ -935,19 +891,27 @@ private fun PlayerSettingsScreen(
 }
 
 // ====================================================================
-// 3. EXTENSION SETTINGS SUB-SCREEN (Clean & Empty by default)
+// 3. EXTENSION SETTINGS SUB-SCREEN (Real Network Fetch & .cs3 Installer)
 // ====================================================================
 @Composable
 private fun ExtensionSettingsScreen(
-    installedRepos: List<InstalledRepo>,
-    repoInput: String,
-    onRepoInputChange: (String) -> Unit,
-    onAddRepo: () -> Unit,
-    onDeleteRepo: (InstalledRepo) -> Unit,
-    autoUpdate: Boolean,
-    onAutoUpdateChange: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val haptics = rememberHaptics()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    var repoInput by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    var currentRepoMeta by remember { mutableStateOf<com.jeet.mobistream.core.extension.RepositoryMeta?>(null) }
+    val extensionList = remember { mutableStateListOf<com.jeet.mobistream.core.extension.ExtensionItem>() }
+    var autoUpdate by remember { mutableStateOf(true) }
+
+    // Downloading item trackers
+    val downloadingIds = remember { mutableStateListOf<String>() }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -982,7 +946,7 @@ private fun ExtensionSettingsScreen(
 
                     OutlinedTextField(
                         value = repoInput,
-                        onValueChange = onRepoInputChange,
+                        onValueChange = { repoInput = it },
                         placeholder = { Text("e.g. msr or https://...", color = TextDeepDim, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -999,7 +963,34 @@ private fun ExtensionSettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
-                        onClick = onAddRepo,
+                        onClick = {
+                            val input = repoInput.trim()
+                            if (input.isEmpty()) {
+                                Toast.makeText(context, "Please enter a shortcode or repo URL", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            haptics.mediumClick()
+                            isLoading = true
+                            statusMessage = "Fetching repository manifest..."
+
+                            scope.launch {
+                                val result = com.jeet.mobistream.core.extension.ExtensionManager.fetchRepository(context, input)
+                                isLoading = false
+                                statusMessage = null
+
+                                result.onSuccess { (meta, plugins) ->
+                                    haptics.heavyClick()
+                                    currentRepoMeta = meta
+                                    extensionList.clear()
+                                    extensionList.addAll(plugins)
+                                    Toast.makeText(context, "Loaded ${meta.name} (${plugins.size} Providers)", Toast.LENGTH_SHORT).show()
+                                }.onFailure { err ->
+                                    Toast.makeText(context, "Failed: ${err.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        enabled = !isLoading,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed)
@@ -1007,7 +998,12 @@ private fun ExtensionSettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Add, contentDescription = null, tint = TextPureWhite, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add Repository", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                text = if (isLoading) "Connecting to GitHub..." else "Fetch & Add Repository",
+                                color = TextPureWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }
@@ -1015,12 +1011,66 @@ private fun ExtensionSettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Installed Repositories List
-        item {
-            SubSectionHeader("INSTALLED REPOSITORIES (${installedRepos.size})")
+        // Active Repository Card (if loaded)
+        if (currentRepoMeta != null) {
+            item {
+                SubSectionHeader("ACTIVE REPOSITORY")
+                LiquidGlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(currentRepoMeta?.name ?: "", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(
+                                text = "${extensionList.size} Curated Hindi Providers • Manifest v${currentRepoMeta?.manifestVersion}",
+                                color = TextSoftMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                haptics.mediumClick()
+                                scope.launch {
+                                    extensionList.forEach { ext ->
+                                        if (!ext.isInstalled) {
+                                            downloadingIds.add(ext.internalName)
+                                            val dlRes = com.jeet.mobistream.core.extension.ExtensionManager.downloadExtension(context, ext)
+                                            downloadingIds.remove(ext.internalName)
+                                            if (dlRes.isSuccess) {
+                                                val idx = extensionList.indexOf(ext)
+                                                if (idx != -1) {
+                                                    extensionList[idx] = ext.copy(isInstalled = true, isEnabled = true)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Toast.makeText(context, "All providers installed successfully!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        ) {
+                            Text("Install All", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
         }
 
-        if (installedRepos.isEmpty()) {
+        // Available Providers List
+        item {
+            SubSectionHeader("AVAILABLE PROVIDERS (${extensionList.size})")
+        }
+
+        if (extensionList.isEmpty()) {
             item {
                 LiquidGlassSurface(
                     modifier = Modifier.fillMaxWidth(),
@@ -1042,10 +1092,10 @@ private fun ExtensionSettingsScreen(
                             Icon(Icons.Rounded.Extension, contentDescription = null, tint = TextSoftMuted, modifier = Modifier.size(26.dp))
                         }
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("No Extensions Installed", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("No Extensions Loaded", color = TextPureWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "No providers are added by default.\nType 'msr' above to install the curated 7 Hindi providers.",
+                            text = "No providers are added by default.\nType 'msr' above to fetch the curated 7 Hindi providers.",
                             color = TextSoftMuted,
                             fontSize = 11.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1056,7 +1106,9 @@ private fun ExtensionSettingsScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
         } else {
-            items(installedRepos) { repo ->
+            items(extensionList, key = { it.internalName }) { ext ->
+                val isDownloading = downloadingIds.contains(ext.internalName)
+
                 LiquidGlassSurface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp)
@@ -1068,20 +1120,108 @@ private fun ExtensionSettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(repo.name, color = TextPureWhite, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                LiquidGlassBadge("${repo.providerCount} Providers", accentColor = Color(0xFF10B981))
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(repo.url, color = TextSoftMuted, fontSize = 10.sp, maxLines = 1)
-                        }
-                        IconButton(
-                            onClick = { onDeleteRepo(repo) },
-                            modifier = Modifier.size(34.dp)
+                        // Provider icon + details
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Delete", tint = CrimsonRed, modifier = Modifier.size(20.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(GlassSurfaceDark),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = ext.name.take(2).uppercase(),
+                                    color = CrimsonRed,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(ext.name, color = TextPureWhite, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    LiquidGlassBadge(ext.language.uppercase(), accentColor = CrimsonRed)
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "v${ext.version} • ${ext.authors.firstOrNull() ?: "buildbyrohit"}",
+                                    color = TextSoftMuted,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        // Right actions (Install button vs Installed toggles)
+                        if (!ext.isInstalled) {
+                            Button(
+                                onClick = {
+                                    haptics.lightClick()
+                                    downloadingIds.add(ext.internalName)
+                                    scope.launch {
+                                        val dlRes = com.jeet.mobistream.core.extension.ExtensionManager.downloadExtension(context, ext)
+                                        downloadingIds.remove(ext.internalName)
+                                        if (dlRes.isSuccess) {
+                                            haptics.heavyClick()
+                                            val idx = extensionList.indexOf(ext)
+                                            if (idx != -1) {
+                                                extensionList[idx] = ext.copy(isInstalled = true, isEnabled = true)
+                                            }
+                                            Toast.makeText(context, "${ext.name} installed!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Install failed: ${dlRes.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                enabled = !isDownloading,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed)
+                            ) {
+                                Text(
+                                    text = if (isDownloading) "Downloading..." else "Install",
+                                    color = TextPureWhite,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(
+                                    checked = ext.isEnabled,
+                                    onCheckedChange = { isChecked ->
+                                        haptics.lightClick()
+                                        com.jeet.mobistream.core.extension.ExtensionManager.setExtensionEnabled(context, ext.internalName, isChecked)
+                                        val idx = extensionList.indexOf(ext)
+                                        if (idx != -1) {
+                                            extensionList[idx] = ext.copy(isEnabled = isChecked)
+                                        }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = TextPureWhite,
+                                        checkedTrackColor = Color(0xFF10B981),
+                                        uncheckedThumbColor = TextDeepDim,
+                                        uncheckedTrackColor = GlassSurfaceDark
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                IconButton(
+                                    onClick = {
+                                        haptics.lightClick()
+                                        com.jeet.mobistream.core.extension.ExtensionManager.uninstallExtension(context, ext.internalName)
+                                        val idx = extensionList.indexOf(ext)
+                                        if (idx != -1) {
+                                            extensionList[idx] = ext.copy(isInstalled = false, isEnabled = false)
+                                        }
+                                        Toast.makeText(context, "${ext.name} uninstalled", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Rounded.DeleteOutline, contentDescription = "Uninstall", tint = TextDeepDim, modifier = Modifier.size(18.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -1099,7 +1239,7 @@ private fun ExtensionSettingsScreen(
                     title = "Auto-update Extensions",
                     subtitle = "Silently fetch provider updates in background",
                     checked = autoUpdate,
-                    onCheckedChange = onAutoUpdateChange
+                    onCheckedChange = { autoUpdate = it }
                 )
             }
             Spacer(modifier = Modifier.height(100.dp))

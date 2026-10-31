@@ -1,7 +1,7 @@
 package com.jeet.mobistream.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,82 +15,76 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.jeet.mobistream.core.extension.ExtensionItem
+import com.jeet.mobistream.core.extension.ExtensionManager
 import com.jeet.mobistream.ui.components.LiquidGlassBadge
 import com.jeet.mobistream.ui.components.LiquidGlassSurface
 import com.jeet.mobistream.ui.components.rememberHaptics
 import com.jeet.mobistream.ui.theme.AmoledBlack
 import com.jeet.mobistream.ui.theme.CrimsonRed
-import com.jeet.mobistream.ui.theme.LiquidCyan
-import com.jeet.mobistream.ui.theme.LiquidRuby
+import com.jeet.mobistream.ui.theme.GlassSurfaceDark
 import com.jeet.mobistream.ui.theme.TextDeepDim
 import com.jeet.mobistream.ui.theme.TextPureWhite
 import com.jeet.mobistream.ui.theme.TextSoftMuted
-
-data class MediaItem(
-    val id: String,
-    val title: String,
-    val posterUrl: String,
-    val badge: String,
-    val badgeColor: Color = CrimsonRed
-)
 
 @Composable
 fun HomeScreen(
     paddingValues: PaddingValues = PaddingValues()
 ) {
+    val context = LocalContext.current
     val haptics = rememberHaptics()
+    val installedProviders = remember { mutableStateListOf<ExtensionItem>() }
+    var isChecking by remember { mutableStateOf(true) }
 
-    val sampleTrending = listOf(
-        MediaItem("1", "Stranger Things 5", "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600", "4K • HINDI", CrimsonRed),
-        MediaItem("2", "Deadpool & Wolverine", "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600", "CINEMA", LiquidRuby),
-        MediaItem("3", "Squid Game 2", "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600", "TRENDING", LiquidCyan),
-        MediaItem("4", "The Boys S4", "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600", "1080P", Color.White)
-    )
+    fun loadActiveProviders() {
+        installedProviders.clear()
+        installedProviders.addAll(ExtensionManager.getInstalledExtensions(context))
+        isChecking = false
+    }
 
-    val sampleCricket = listOf(
-        MediaItem("5", "India vs Australia T20", "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=600", "LIVE NOW", CrimsonRed),
-        MediaItem("6", "IPL 2026 Finals", "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600", "STADIUM FEED", LiquidRuby),
-        MediaItem("7", "Champions Trophy HD", "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=600", "HINDI COMM", LiquidCyan)
-    )
-
-    val sampleBollywood = listOf(
-        MediaItem("8", "Singham Again", "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600", "BLOCKBUSTER", CrimsonRed),
-        MediaItem("9", "Pushpa 2: The Rule", "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=600", "MULTI-AUDIO", LiquidRuby),
-        MediaItem("10", "Stree 2", "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600", "HINDI 4K", Color.White)
-    )
+    LaunchedEffect(Unit) {
+        loadActiveProviders()
+    }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(AmoledBlack),
-        contentPadding = PaddingValues(bottom = 100.dp)
+        contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         // Top App Bar
         item {
@@ -117,263 +111,258 @@ fun HomeScreen(
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.width(12.dp))
-                    LiquidGlassBadge(text = "MSR ACTIVE", accentColor = CrimsonRed)
+                    if (installedProviders.isNotEmpty()) {
+                        LiquidGlassBadge(
+                            text = "${installedProviders.size} ACTIVE",
+                            accentColor = Color(0xFF10B981)
+                        )
+                    } else {
+                        LiquidGlassBadge(
+                            text = "NO EXTENSIONS",
+                            accentColor = CrimsonRed
+                        )
+                    }
                 }
 
                 LiquidGlassSurface(
                     modifier = Modifier.size(40.dp),
                     shape = CircleShape,
-                    onClick = { haptics.lightClick() }
+                    onClick = {
+                        haptics.lightClick()
+                        loadActiveProviders()
+                        Toast.makeText(context, "Provider status refreshed", Toast.LENGTH_SHORT).show()
+                    }
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = "Filter",
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = "Refresh",
                         tint = TextPureWhite,
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(18.dp)
                             .align(Alignment.Center)
                     )
                 }
             }
         }
 
-        // Hero Billboard (Apple Liquid Glass Frame)
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(380.dp)
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
+        if (installedProviders.isEmpty()) {
+            // Elegant Zero-Hardcoded State: Modular Setup Banner
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
                 LiquidGlassSurface(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(26.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     specularAlpha = 0.35f
                 ) {
-                    // Hero Image
-                    AsyncImage(
-                        model = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1080",
-                        contentDescription = "Featured",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // Cinematic Bottom Gradient
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color(0x80000000),
-                                        AmoledBlack
-                                    )
-                                )
-                            )
-                    )
-
-                    // Billboard Content
                     Column(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(20.dp)
+                            .fillMaxWidth()
+                            .padding(26.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        LiquidGlassBadge(text = "TOP 10 TODAY • 4K ULTRA HD", accentColor = CrimsonRed)
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(GlassSurfaceDark),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Extension,
+                                contentDescription = null,
+                                tint = CrimsonRed,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
                         Text(
-                            text = "Avatar: Fire and Ash",
-                            style = MaterialTheme.typography.displayLarge,
+                            text = "No Extensions Installed",
+                            color = TextPureWhite,
                             fontWeight = FontWeight.Bold,
-                            color = TextPureWhite
+                            fontSize = 18.sp
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
-                            text = "Hindi Dubbed • English • Sci-Fi • 3h 12m",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSoftMuted
+                            text = "MobiStream is 100% modular and contains zero pre-loaded content.\nAdd an extension repository to enable streaming for movies, shows, and live sports.",
+                            color = TextSoftMuted,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(22.dp))
 
+                        // Step-by-step guidance card
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0x22111111))
+                                .padding(16.dp)
+                        ) {
+                            StepInstructionRow(step = "1", text = "Open Settings tab from the bottom bar")
+                            Spacer(modifier = Modifier.height(10.dp))
+                            StepInstructionRow(step = "2", text = "Select 'Extension' category")
+                            Spacer(modifier = Modifier.height(10.dp))
+                            StepInstructionRow(step = "3", text = "Tap '+' and enter shortcode 'msr'")
+                            Spacer(modifier = Modifier.height(10.dp))
+                            StepInstructionRow(step = "4", text = "Install your preferred Hindi/Sports providers")
+                        }
+                    }
+                }
+            }
+        } else {
+            // Live Providers Dashboard
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "INSTALLED PROVIDERS",
+                        color = TextSoftMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    )
+                    Text(
+                        text = "${installedProviders.size} Enabled",
+                        color = Color(0xFF10B981),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            items(installedProviders, key = { it.internalName }) { ext ->
+                LiquidGlassSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    specularAlpha = 0.25f
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(
-                                onClick = { haptics.heavyClick() },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = TextPureWhite,
-                                    contentColor = AmoledBlack
-                                ),
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.height(44.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = "Play",
-                                    modifier = Modifier.size(20.dp)
+                            if (!ext.iconUrl.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = ext.iconUrl,
+                                    contentDescription = ext.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Play",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-
-                            LiquidGlassSurface(
-                                modifier = Modifier.height(44.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                onClick = { haptics.lightClick() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(GlassSurfaceDark),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Add,
-                                        contentDescription = "List",
-                                        tint = TextPureWhite,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "My List",
-                                        color = TextPureWhite,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        text = ext.name.take(2).uppercase(),
+                                        color = CrimsonRed,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
                                     )
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = ext.name,
+                                        color = TextPureWhite,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    LiquidGlassBadge(
+                                        text = ext.language.uppercase(),
+                                        accentColor = CrimsonRed
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = if (ext.hasSubProviders) {
+                                        "${ext.enabledSubProviders.size} Active Channels/Feeds"
+                                    } else {
+                                        "v${ext.version} • Ready"
+                                    },
+                                    color = TextSoftMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981).copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = "Active",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
             }
         }
-
-        // Section: Trending Now
-        item {
-            MediaRowSection(
-                title = "Trending on MobiStream",
-                items = sampleTrending
-            )
-        }
-
-        // Section: Live Cricket & Sports (MSR SK Tech & Cricify)
-        item {
-            MediaRowSection(
-                title = "Live Cricket & Sports Feeds",
-                items = sampleCricket,
-                isLive = true
-            )
-        }
-
-        // Section: Bollywood & Hindi Dubbed Blockbusters
-        item {
-            MediaRowSection(
-                title = "Bollywood & South Hindi Hits",
-                items = sampleBollywood
-            )
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(100.dp))
-        }
     }
 }
 
 @Composable
-fun MediaRowSection(
-    title: String,
-    items: List<MediaItem>,
-    isLive: Boolean = false
-) {
-    val haptics = rememberHaptics()
-
-    Column(modifier = Modifier.padding(top = 22.dp)) {
-        Row(
+private fun StepInstructionRow(step: String, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(CrimsonRed),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
+                text = step,
+                color = TextPureWhite,
                 fontWeight = FontWeight.Bold,
-                color = TextPureWhite
-            )
-            Text(
-                text = "See All",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = CrimsonRed
+                fontSize = 11.sp
             )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(items) { item ->
-                LiquidGlassSurface(
-                    modifier = Modifier
-                        .width(if (isLive) 200.dp else 135.dp)
-                        .height(if (isLive) 130.dp else 200.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    specularAlpha = 0.25f,
-                    onClick = {
-                        haptics.mediumClick()
-                    }
-                ) {
-                    AsyncImage(
-                        model = item.posterUrl,
-                        contentDescription = item.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        AmoledBlack.copy(alpha = 0.85f)
-                                    )
-                                )
-                            )
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .align(Alignment.TopStart)
-                    ) {
-                        LiquidGlassBadge(
-                            text = item.badge,
-                            accentColor = item.badgeColor
-                        )
-                    }
-
-                    Text(
-                        text = item.title,
-                        color = TextPureWhite,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(10.dp)
-                    )
-                }
-            }
-        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = text,
+            color = TextPureWhite,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal
+        )
     }
 }
-

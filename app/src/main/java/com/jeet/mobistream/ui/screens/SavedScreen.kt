@@ -76,22 +76,11 @@ fun SavedScreen() {
     val haptics = rememberHaptics()
     var selectedSegment by remember { mutableIntStateOf(0) } // 0 = Watchlist, 1 = Downloads
 
-    // Sample saved watchlist items
-    val watchlistItems = remember {
-        mutableStateListOf(
-            SavedMediaItem("1", "Jawan (Extended Cut)", "Bollywood • Action", "2h 49m", "1080p FHD"),
-            SavedMediaItem("2", "Kalki 2898 AD", "Sci-Fi • Epic", "3h 01m", "4K HDR"),
-            SavedMediaItem("3", "Mirzapur Season 3", "Series • 10 Episodes", "Hindi", "1080p FHD")
-        )
-    }
+    // Saved watchlist items (empty by default)
+    val watchlistItems = remember { mutableStateListOf<SavedMediaItem>() }
 
-    // Sample downloaded offline items
-    val downloadedItems = remember {
-        mutableStateListOf(
-            SavedMediaItem("4", "Animal", "Bollywood • Action", "3h 24m", "1080p", "1.8 GB"),
-            SavedMediaItem("5", "India vs Australia T20 Final", "Live Sports Replay", "3h 15m", "720p 60fps", "1.2 GB")
-        )
-    }
+    // Downloaded offline items (empty by default)
+    val downloadedItems = remember { mutableStateListOf<SavedMediaItem>() }
 
     LazyColumn(
         modifier = Modifier
@@ -247,7 +236,7 @@ fun SavedScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Storage, contentDescription = null, tint = TextSoftMuted, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Storage: 3.0 GB used", color = TextSoftMuted, fontSize = 12.sp)
+                        Text("Storage: ${if (downloadedItems.isEmpty()) "0 MB" else "${downloadedItems.size} items"} used", color = TextSoftMuted, fontSize = 12.sp)
                     }
                     Text("52.4 GB free", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }

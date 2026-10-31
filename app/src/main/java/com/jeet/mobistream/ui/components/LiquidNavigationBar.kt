@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -44,7 +44,7 @@ import com.jeet.mobistream.ui.theme.TextPureWhite
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     HOME("Home", Icons.Rounded.Home),
     SEARCH("Search", Icons.Rounded.Search),
-    EXTENSIONS("Extensions", Icons.Rounded.Download),
+    SAVED("Saved", Icons.Rounded.Bookmark),
     SETTINGS("Settings", Icons.Rounded.Settings)
 }
 
